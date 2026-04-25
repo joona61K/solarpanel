@@ -90,15 +90,21 @@ public class WeatherForecastService : IWeatherForecastService
 
     private async Task SaveForecastAsync(List<WeatherForecastEntry> entries)
     {
+        if (entries.Count == 0) return;
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HemsDbContext>();
         var cutoff = DateTime.UtcNow.AddDays(-1);
         var old = db.WeatherForecasts.Where(w => w.ForecastTime < cutoff);
         db.WeatherForecasts.RemoveRange(old);
+        var minTime = entries.Min(e => e.ForecastTime);
+        var maxTime = entries.Max(e => e.ForecastTime);
+        var existingTimes = (await db.WeatherForecasts
+            .Where(w => w.ForecastTime >= minTime && w.ForecastTime <= maxTime)
+            .Select(w => w.ForecastTime)
+            .ToListAsync()).ToHashSet();
         foreach (var entry in entries)
         {
-            var exists = await db.WeatherForecasts.AnyAsync(w => w.ForecastTime == entry.ForecastTime);
-            if (!exists)
+            if (!existingTimes.Contains(entry.ForecastTime))
                 db.WeatherForecasts.Add(entry);
         }
         await db.SaveChangesAsync();

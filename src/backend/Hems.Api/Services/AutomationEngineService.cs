@@ -129,7 +129,6 @@ public class AutomationEngineService : IHostedService, IDisposable
         db.AutomationLogs.Add(log);
         _logger.LogInformation("Automation: {Device} {Action} ({Reason}) - {Result}",
             device, action, reason, success ? "OK" : "FAILED");
-        await db.SaveChangesAsync();
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

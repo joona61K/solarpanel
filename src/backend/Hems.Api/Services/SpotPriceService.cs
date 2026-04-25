@@ -97,13 +97,19 @@ public class SpotPriceService : ISpotPriceService
 
     private async Task SavePricesAsync(List<SpotPrice> prices)
     {
+        if (prices.Count == 0) return;
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HemsDbContext>();
+        var minHour = prices.Min(p => p.HourUtc);
+        var maxHour = prices.Max(p => p.HourUtc);
+        var existingKeys = await db.SpotPrices
+            .Where(p => p.HourUtc >= minHour && p.HourUtc <= maxHour)
+            .Select(p => new { p.HourUtc, p.Area })
+            .ToListAsync();
+        var existingSet = existingKeys.Select(k => (k.HourUtc, k.Area)).ToHashSet();
         foreach (var price in prices)
         {
-            var exists = await db.SpotPrices.AnyAsync(p =>
-                p.HourUtc == price.HourUtc && p.Area == price.Area);
-            if (!exists)
+            if (!existingSet.Contains((price.HourUtc, price.Area)))
                 db.SpotPrices.Add(price);
         }
         await db.SaveChangesAsync();
